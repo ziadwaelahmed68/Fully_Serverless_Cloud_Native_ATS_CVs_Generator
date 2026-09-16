@@ -26,7 +26,7 @@ This project is a real-world AWS implementation that demonstrates how multiple c
 
 ## Architecture
 
-![Architecture Diagram](Architecture/Image.jpg)
+![Architecture Diagram](architecture/image.jpg)
 
 
 
