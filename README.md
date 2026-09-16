@@ -22,23 +22,6 @@ This project is a real-world AWS implementation that demonstrates how multiple c
 
 ---
 
-## 📁 Project Structure
-
-```
-ats-cv-generator/
-├── backend/
-│   ├── app.py                  # Flask web application (runs on EC2)
-│   └── templates/
-│       └── index.html          # Frontend form
-├── lambda_generator/
-│   └── lambda_function.py      # CV Generator Lambda
-├── lambda_analyzer/
-│   └── lambda_function.py      # JD Analyzer Lambda
-└── README.md
-```
-
----
-
 
 
 ## 🏗️ Architecture
@@ -66,7 +49,7 @@ ats-cv-generator/
 | **IAM Role** | Grants Lambda permissions for S3 and DynamoDB |
 
 
-## 🚀 Features
+## Features
 
 - **CV Generation** — Fills out a form → generates an ATS-optimized plain-text CV → stores it in S3 → returns a download link
 - **JD Analysis** — Paste any job description → get a match score (0–100%) → see missing keywords → get improvement suggestions
