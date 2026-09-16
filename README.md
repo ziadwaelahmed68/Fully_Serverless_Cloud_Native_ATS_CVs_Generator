@@ -73,3 +73,13 @@ ats-cv-generator/
 - **High Availability** — Two EC2 instances in two Availability Zones behind a Load Balancer
 - **Serverless Backend** — Lambda functions scale automatically with zero server management
 - **100% Free Tier** — Runs within AWS Free Tier limits for personal/learning use
+
+## Application Demo
+
+Here is the application running end-to-end, showcasing the UI workflow and the responses returned from the serverless backend:
+
+![Landing & Input UI](./demo/1.png)![Landing & Input UI2](./demo/2.png)
+*Figure 1&2: Resume generation and job description analysis input.*
+
+![Results View](./demo/3.png)![Landing & Input UI2](./demo/4.png)
+*Figure 3&4: Generated outputs retrieved via backend API calls.*
