@@ -22,6 +22,23 @@ This project is a real-world AWS implementation that demonstrates how multiple c
 
 ---
 
+## 📁 Project Structure
+
+```
+ats-cv-generator/
+├── backend/
+│   ├── app.py                  # Flask web application (runs on EC2)
+│   └── templates/
+│       └── index.html          # Frontend form
+├── lambda/
+│   └── cv_generator
+│       └── code.py             # CV Generator Lambda
+│   └── jd_analyzer
+│       └── code.py             # JD Analyzer Lambda
+└── README.md
+```
+
+---
 
 
 ## Architecture
