@@ -1,84 +1,70 @@
 import json
 import os
-import uuid
+import re
 import boto3
-from datetime import datetime
 
-s3 = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
-
-BUCKET_NAME = os.environ["BUCKET_NAME"]
-TABLE_NAME  = os.environ["TABLE_NAME"]
+TABLE_NAME = os.environ["TABLE_NAME"]
 table = dynamodb.Table(TABLE_NAME)
 
+STOPWORDS = {
+    "the","a","an","and","or","of","to","in","for","with","on",
+    "at","by","is","are","be","as","this","that","we","you",
+    "will","your","our","from","have","has","it","its","their",
+    "they","must","should","can","able","etc","all","any",
+}
 
-def build_cv_text(data):
-    lines = []
-    lines.append(data["full_name"].upper())
-    lines.append(f"{data['email']}  |  {data['phone']}")
-    lines.append("")
-    lines.append("=" * 60)
-    lines.append("PROFESSIONAL SUMMARY")
-    lines.append("=" * 60)
-    lines.append(data["summary"])
-    lines.append("")
-    lines.append("=" * 60)
-    lines.append("SKILLS")
-    lines.append("=" * 60)
-    lines.append(data["skills"])
-    lines.append("")
-    lines.append("=" * 60)
-    lines.append("EXPERIENCE")
-    lines.append("=" * 60)
-    lines.append(data["experience"])
-    lines.append("")
-    lines.append("=" * 60)
-    lines.append("EDUCATION")
-    lines.append("=" * 60)
-    lines.append(data["education"])
-    return "\n".join(lines)
+def extract_keywords(text):
+    words = re.findall(r"[a-zA-Z][a-zA-Z\+\#\.]{2,}", text.lower())
+    return {w.strip(".") for w in words if w not in STOPWORDS and len(w) > 2}
 
 
 def lambda_handler(event, context):
     try:
-        body = json.loads(event.get("body", "{}")) if isinstance(event.get("body"), str) else event.get("body", event)
+        body = json.loads(event.get("body","{}")) if isinstance(event.get("body"),str) else event.get("body",event)
 
-        required_fields = ["full_name","email","phone","summary","skills","experience","education"]
-        missing = [f for f in required_fields if not body.get(f)]
-        if missing:
-            return _response(400, {"error": f"الحقول الناقصة: {', '.join(missing)}"})
+        cv_id           = body.get("cv_id")
+        job_description = body.get("job_description","")
 
-        cv_id        = str(uuid.uuid4())
-        s3_key       = f"cvs/{cv_id}.txt"
-        cv_text      = build_cv_text(body)
+        if not cv_id or not job_description:
+            return _response(400, {"error": "محتاج cv_id و job_description"})
 
-        s3.put_object(
-            Bucket=BUCKET_NAME, Key=s3_key,
-            Body=cv_text.encode("utf-8"), ContentType="text/plain",
+        cv_item = table.get_item(Key={"cv_id": cv_id}).get("Item")
+        if not cv_item:
+            return _response(404, {"error": "الـ CV ده مش موجود"})
+
+        cv_text = " ".join([
+            cv_item.get("summary",""), cv_item.get("skills",""),
+            cv_item.get("experience",""), cv_item.get("education",""),
+        ])
+
+        jd_kw   = extract_keywords(job_description)
+        cv_kw   = extract_keywords(cv_text)
+        matched = jd_kw & cv_kw
+        missing = jd_kw - cv_kw
+
+        score       = round(len(matched)/len(jd_kw)*100) if jd_kw else 0
+        top_missing = sorted(missing, key=len, reverse=True)[:15]
+
+        if score >= 75:
+            suggestion = "السيرة الذاتية متوافقة بشكل قوي مع الوظيفة."
+        elif score >= 50:
+            suggestion = "توافق متوسط. أضف الكلمات الناقصة لو عندك خبرة فيها."
+        else:
+            suggestion = "التوافق ضعيف. راجع وصف الوظيفة وأضف المهارات ذات الصلة."
+
+        table.update_item(
+            Key={"cv_id": cv_id},
+            UpdateExpression="SET last_match_score = :s",
+            ExpressionAttributeValues={":s": score},
         )
-
-        download_url = s3.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": BUCKET_NAME, "Key": s3_key},
-            ExpiresIn=3600,
-        )
-
-        table.put_item(Item={
-            "cv_id":      cv_id,
-            "full_name":  body["full_name"],
-            "email":      body["email"],
-            "summary":    body["summary"],
-            "skills":     body["skills"],
-            "experience": body["experience"],
-            "education":  body["education"],
-            "s3_key":     s3_key,
-            "created_at": datetime.utcnow().isoformat(),
-        })
 
         return _response(200, {
-            "cv_id":        cv_id,
-            "download_url": download_url,
-            "message":      "تم توليد السيرة الذاتية بنجاح",
+            "match_score":             score,
+            "missing_keywords":        top_missing,
+            "matched_keywords_count":  len(matched),
+            "total_jd_keywords":       len(jd_kw),
+            "suggestions":             suggestion,
         })
 
     except Exception as e:
